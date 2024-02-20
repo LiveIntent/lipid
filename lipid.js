@@ -1,60 +1,95 @@
 // ==UserScript==
 // @name         LIPID - LiveIntent Prebid Identity Debugger
 // @version      2024-02-20
-// @description  Diagnoses configuration and environmental issues with LiveIntent's Prebid.js Identity Module
+// @description  Diagnose configuration and environmental issues with LiveIntent's Prebid.js Identity Module
 // @match        https://*
 // @author       phillip@liveintent.com <Phillip Markert>
+// @grant        none
 // ==/UserScript==
 
 (function() {
-    'use strict';
+'use strict';
 // start liveintent module init and measurement v1.3
-const color = (background, foreground) => `display: inline-block; color: ${foreground}; background: ${background}; padding: 1px 4px; border-radius: 3px;`;
-const label = ["%cLiveIntent", color("blue", "orange")];
-const tag = (text, background, foreground) => {
-  return [label[0] + "%c" + text, label[1], color(background, foreground)];
-}
 
-console.log('a');
-if(!!window.pbjs) console.log(...tag("WARNING:", 'red'), "window.pbjs ALREADY EXISTS!!");
-console.log('b');
-const pbjs = (window.pbjs = window.pbjs || { que: [] });
-const fireLIMetric = (eventName, eventColor, event) => console.log(...tag(eventName, eventColor), { ...event, moduleConfig: moduleConfig(), moduleIsInstalled: moduleIsInstalled() });
+// Set to false by default, or a number of milliseconds to override the auctionDelay
+const OVERRIDE_AUCTION_DELAY = false; // 300;
+const PREBID_WINDOW_PROPERTY_NAME = 'pbjs';
+
+// A reasonable timeout for prebid to initialize
+const PREBID_START_TIMEOUT = 5000;
+
+const color = (bg, fg) => `display: inline-block; color: ${fg}; background: ${bg}; padding: 1px 4px; border-radius: 3px;`;
+const label = (text, background, foreground) => ({ text, background, foreground, isLabel: true });
+const lipidLabel = ["%cLIPID", color("blue", "orange")];
+const log = (label, ...args) => {
+  if(label.isLabel) {
+    console.log(`${lipidLabel[0]}%c${label.text}`, lipidLabel[1], color(label.background, label.foreground), ...args);
+  }
+  else {
+    console.log(...lipidLabel, label, ...args);
+  }
+};
+
+// This timeout checks to see if Prebid starts up and processes the queue
+const auctionStart = window.setTimeout(() => {
+  log(label("WARNING:", "yellow", "black"), `window.${PREBID_WINDOW_PROPERTY_NAME}.que did not get processed within a reasonable timeout (${PREBID_START_TIMEOUT}ms). Is Prebid running on the page? If so, check that the PREBID_WINDOW_PROPERTY_NAME constant configured in LIPID matches the name the publisher gave to the prebid global window property.`);
+}, PREBID_START_TIMEOUT);
+
+if(!!window[PREBID_WINDOW_PROPERTY_NAME]) log(label("WARNING:", 'red'), `window.${PREBID_WINDOW_PROPERTY_NAME} already exists. This script should be running first. Your script-runner may not be configured to run as early as possible. This is not a problem with the publisher's website or prebid configuration, but rather how the LIPID script is able to debug. Early config changes may not have been logged.`);
+
+const pbjs = (window[PREBID_WINDOW_PROPERTY_NAME] = window[PREBID_WINDOW_PROPERTY_NAME] ?? { que: [] });
 const bidWasEnriched = (bid) => bid.userIdAsEids?.some((eid) => eid.source === "liveintent.com" || eid.uids?.some((uid) => uid.ext?.provider === "liveintent.com"));
-console.log('e');
 const moduleIsInstalled = () => pbjs.installedModules.includes("liveIntentIdSystem");
 const moduleConfig = () => pbjs.getConfig().userSync.userIds?.find(module => module.name==="liveIntentId");
-console.log('g');
+const fireLIMetric = (label, event) => log(label, { ...event, moduleConfig: moduleConfig(), moduleIsInstalled: moduleIsInstalled() });
 
-console.log(...label, "Starting LIPID", pbjs.que);
-pbjs.que.push(function () {
-  debugger;
-  console.log("LIPID Callback");
-});
-console.log(...label, "Starting LIPID", pbjs.que[0].toString());
-console.log('h');
+pbjs.que.push(() => {
+  // troubleshooting steps - Prebid Initialization
+  window.clearTimeout(auctionStart); // Prebid was initialized, so clear the timeout.
+  if(!moduleIsInstalled()) {
+    log(label("ERROR:", "red"), "liveIntentIdSystem is not an installed module. Bids will not be enriched.");
+  }
+  // End troubleshooting steps
 
-  /*
-  pbjs.getConfig('userSync', ({ userSync }) => console.log(...label, "setConfig(userSync)", userSync));
-  // pbjs.setConfig({ userSync: { auctionDelay:300}});
+  pbjs.getConfig('userSync', ({ userSync }) => log(label("setConfig(userSync)", "#CC99FF", "black"), userSync));
+
+  // Uncomment these lines to override auctionDelay
+  if(OVERRIDE_AUCTION_DELAY!==false) {
+    pbjs.cmd.push(() => {
+      log(label("OVERRIDE:", "orange", "black"), `Overriding auction delay to ${OVERRIDE_AUCTION_DELAY}`);
+      pbjs.setConfig({ userSync: { auctionDelay: OVERRIDE_AUCTION_DELAY}});
+    });
+  }
 
   pbjs.onEvent("auctionInit", (args) => {
     const auctionWasEnriched = args.bidderRequests.some(br => br.bids.some(bidWasEnriched));
-    fireLIMetric("auctionInit", { auctionId: args.auctionId, enriched: auctionWasEnriched, auctionDelay: pbjs.getConfig().userSync.auctionDelay });
+    fireLIMetric(label("auctionInit", "green"), { auctionId: args.auctionId, enriched: auctionWasEnriched, auctionDelay: pbjs.getConfig().userSync.auctionDelay });
+
+    // Troubleshooting steps
+    const currentConfig = pbjs.getConfig();
+    if(currentConfig.userSync.auctionDelay===0) {
+      log(label("WARNING:", "yellow", "black"), "userSync.auctionDelay is set to 0 at the start of the auction. Bids will not be enriched for the first auction on page, but may be available for subsequent auctions");
+      const currentModuleConfig = moduleConfig();
+      if(!currentModuleConfig) {
+        log(label("ERROR:", "red"), "liveIntentId module is not configured at the start of the auction. Bids will not be enriched.");
+      }
+    }
+    if(!auctionWasEnriched) {
+      log(label("INFO:", "magenta", "white"), "This auction was not enriched. Either due to a mis-configuration, a timeout, or perhaps the user was just not resolved to have any identifiers.");
+    }
   });
 
   pbjs.onEvent("auctionEnd", (args) => {
     const auctionWasEnriched = args.bidderRequests.some(br => br.bids.some(bidWasEnriched));
     const auctionTotalCpm = (pbjs.getHighestCpmBids()??[]).reduce((carry, bid) => carry + bid.cpm, 0);
-    fireLIMetric("auctionEnd", { auctionId: args.auctionId, enriched: auctionWasEnriched, cpm: auctionTotalCpm });
+    fireLIMetric(label("auctionEnd", "green"), { auctionId: args.auctionId, enriched: auctionWasEnriched, cpm: auctionTotalCpm });
   });
 
   pbjs.onEvent("adRenderSucceeded", ({ bid }) => {
     const winningBidWasEnriched = pbjs.getEvents().find(e => e.eventType==='auctionInit' && e.args.auctionId===bid.auctionId)?.args.bidderRequests.find(br => br.bidderCode===bid.bidderCode)?.bids.some(bidWasEnriched) ?? false;
-    fireLIMetric("adRenderSucceeded", { auctionId: bid.auctionId, enriched: winningBidWasEnriched, bidId: bid.requestId, cpm: bid.cpm });
+    fireLIMetric(label("adRenderSucceeded", "orange"), { auctionId: bid.auctionId, enriched: winningBidWasEnriched, bidId: bid.requestId, cpm: bid.cpm });
   });
 });
-*/
-
     // end liveintent module init and measurement
 })();
+
