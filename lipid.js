@@ -1,9 +1,13 @@
 // ==UserScript==
 // @name         LIPID - LiveIntent Prebid Identity Debugger
-// @version      2024-02-21
+// @namespace    LiveIntent
+// @version      2024-02-21_1
 // @description  Diagnose configuration and environmental issues with LiveIntent's Prebid.js Identity Module
 // @match        https://*/*
 // @author       phillip@liveintent.com <Phillip Markert>
+// @run-at       document-start
+// @updateURL    https://raw.githubusercontent.com/LiveIntent/lipid/main/lipid.js
+// @downloadURL  https://raw.githubusercontent.com/LiveIntent/lipid/main/lipid.js
 // @grant        none
 // ==/UserScript==
 
