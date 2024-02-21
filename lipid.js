@@ -7,6 +7,7 @@
 // @author       phillip@liveintent.com <Phillip Markert>
 // @run-at       document-start
 // @updateURL    https://raw.githubusercontent.com/LiveIntent/lipid/main/lipid.js
+// @noframes     true
 // @downloadURL  https://raw.githubusercontent.com/LiveIntent/lipid/main/lipid.js
 // @grant        none
 // ==/UserScript==
