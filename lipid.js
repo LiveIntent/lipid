@@ -11,9 +11,7 @@
 'use strict';
   // start liveintent module init and measurement v1.3
 
-
-  window.lipid = { storeConfig: () => { localStorage.setItem('LIPID', JSON.stringify(window.lipid.config)); log('Stored config saved. Reload the page.')}, clearConfig: () => { localStorage.removeItem('LIPID'); log('Stored config reset. Reload the page.'); }};
-  const config = (window.lipid.config = (localStorage.getItem('LIPID') && JSON.parse(localStorage.getItem('LIPID'))) ?? {
+  const DEFAULT_CONFIG = {
     override_auction_delay: false,
     prebid_window_property_name: 'pbjs',
     googletag_window_property_name: 'googletag',
@@ -22,7 +20,7 @@
     googletag_reporting_treated_values: [ 'lcid1', 'on', 't1', 't1-e0', 't1-e1', 't1-e0-ws', 't1-e0-wa', 't1-e1-ws', 't1-e1-wa' ],
     prebid_start_timeout: 5000,
     googletag_start_timeout: 5000
-  });
+  };
 
   // Set to false by default, or a number of milliseconds to override the auctionDelay
   let firstAuction = true;
@@ -38,6 +36,24 @@
     }
   };
   log("LiveIntent Prebid Identity Debugger is active");
+
+  window.lipid = {
+    storeConfig: () => {
+      localStorage.setItem('LIPID', JSON.stringify(window.lipid.config));
+      log('Stored config saved. Reload the page.')
+    },
+    clearConfig: () => {
+      localStorage.removeItem('LIPID');
+      log('Stored config reset. Reload the page.');
+    }
+  };
+  const storedConfig = localStorage.getItem('LIPID');
+  if(storedConfig) {
+    window.lipid.config = JSON.parse(storedConfig);
+    log("Loaded stored config overrides: ", window.lipid.config);
+  }
+  const config = (window.lipid.config = window.lipid.config ?? DEFAULT_CONFIG);
+
 
   // This timeout checks to see if Prebid starts up and processes the queue
   const auctionStart = window.setTimeout(() => {
@@ -98,6 +114,7 @@
               log(label("INFO:", "cyan", "black"), "however, prebid storage IS configured on the liveIntentId module, so subsequent page views may still get first auctions enriched within the expiration period. Storage configuration -> ", currentModuleConfig.storage);
             }
             else {
+              log(label("WARNING:", "orange", "black"), "AND Prebid storage IS not configured on the liveIntentId module, so subsequent page views will also miss first auctions. Storage configuration -> ", currentModuleConfig.storage);
             }
           }
           else {
