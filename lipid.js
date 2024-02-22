@@ -120,7 +120,7 @@
               log(label("INFO:", "cyan", "black"), "however, prebid storage IS configured on the liveIntentId module, so subsequent page views may still get first auctions enriched within the expiration period. Storage configuration -> ", currentModuleConfig.storage);
             }
             else {
-              log(label("WARNING:", "orange", "black"), "AND Prebid storage IS not configured on the liveIntentId module, so subsequent page views will also miss first auctions. Storage configuration -> ", currentModuleConfig.storage);
+              log(label("WARNING:", "orange", "black"), "AND Prebid storage IS not configured on the liveIntentId module, so subsequent page views will also miss first auctions. Storage configuration -> ", currentModuleConfig);
             }
           }
           else {
