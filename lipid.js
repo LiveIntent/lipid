@@ -2,7 +2,7 @@
 // @name         LIPID (LiveIntent Prebid Identity Debugger)
 // @namespace    LiveIntent
 // @homepage     https://github.com/LiveIntent/lipid
-// @version      2024-02-23_1
+// @version      2024-02-22_2
 // @description  Diagnose configuration and environmental issues with LiveIntent's Prebid.js Identity Module
 // @match        https://*/*
 // @author       phillip@liveintent.com <Phillip Markert>
@@ -82,6 +82,8 @@
   const moduleIsInstalled = () => pbjs.installedModules.includes("liveIntentIdSystem");
   const moduleConfig = () => pbjs.getConfig().userSync.userIds?.find(module => module.name==="liveIntentId");
   const fireLIMetric = (label, event) => log(label, { ...event, moduleConfig: moduleConfig(), moduleIsInstalled: moduleIsInstalled() });
+  let moduleEverConfigured = false;
+  let moduleStorageEverConfigured = false;
 
   googletag.cmd.push(() => {
     window.clearTimeout(googletagStart); // GoogleTag was initialized, so clear the timeout.
@@ -95,7 +97,18 @@
     }
     // End troubleshooting steps
 
-    pbjs.getConfig('userSync', ({ userSync }) => log("setConfig(userSync)", userSync));
+    pbjs.getConfig('userSync', ({ userSync }) => {
+      log("setConfig(userSync)", userSync);
+      let newModuleConfig = userSync.userIds?.find(module => module.name === "liveIntentId");
+      if(moduleEverConfigured && !newModuleConfig) {
+        log(label("WARNING:","orange","black"), "LiveIntent module is not in the updated configuration, but previously had been on this page. Removing the userId module may not have the intended effect and the module may have already affected the auctions before this point");
+      }
+      if(moduleStorageEverConfigured && newModuleConfig && !newModuleConfig.storage) {
+        log(label("WARNING:","orange","black"), "LiveIntent module does not have storage configured in the updated configuration, but previously had storage configured on this page. Removing the storageConfiguration from the userId module may not have the intended effect and IDs may have already been resolved/stored.");
+      }
+      if(!!newModuleConfig) moduleEverConfigured = true;
+      if(!!newModuleConfig?.storage) moduleStorageEverConfigured = true;
+    });
 
     // Uncomment these lines to override auctionDelay
     if(config.override_auction_delay!==false) {
