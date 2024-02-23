@@ -2,7 +2,7 @@
 // @name         LIPID (LiveIntent Prebid Identity Debugger)
 // @namespace    LiveIntent
 // @homepage     https://github.com/LiveIntent/lipid
-// @version      2024-02-22_1
+// @version      2024-02-23_1
 // @description  Diagnose configuration and environmental issues with LiveIntent's Prebid.js Identity Module
 // @match        https://*/*
 // @author       phillip@liveintent.com <Phillip Markert>
@@ -173,10 +173,16 @@
                     if(currentModuleConfig && currentConfig.userSync.syncEnabled!==false) {
                       log(label("GAM SETUP:", "red", "white"), `window.googletag.pubads().getTargeting('${config.googletag_reporting_key}') indicates CONTROL group, but module is enabled and active. The control group will be polluted if the auction is enriched.`, "Targeting value is", liTargetingValue);
                     }
+                    else {
+                      log(label("INFO:", "cyan", "black"), `User is in the CONTROL group. Targeting value is ${liTargetingValue}`);
+                    }
                   }
                   else if(config.googletag_reporting_treated_values.includes(liTargetingValue[0])) {
                     if(!currentModuleConfig || currentConfig.userSync.syncEnabled===false) {
                       log(label("GAM SETUP:", "red", "white"), `window.googletag.pubads().getTargeting('${config.googletag_reporting_key}') indicates TREATED group, but module is not enabled or active. The test group will not be enriched and lowers the lift.`, "Targeting value is", liTargetingValue);
+                    }
+                    else {
+                      log(label("INFO:", "cyan", "black"), `User is in the TREATED group. Targeting value is ${liTargetingValue}`);
                     }
                   }
                   else {
