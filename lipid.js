@@ -2,7 +2,7 @@
 // @name         LIPID (LiveIntent Prebid Identity Debugger)
 // @namespace    LiveIntent
 // @homepage     https://github.com/LiveIntent/lipid
-// @version      2024-02-24_1
+// @version      2024-02-24_2
 // @description  Diagnose configuration and environmental issues with LiveIntent's Prebid.js Identity Module
 // @match        https://*/*
 // @author       phillip@liveintent.com <Phillip Markert>
@@ -40,6 +40,7 @@
   const label = (text, background, foreground) => ({ text, background, foreground, isLabel: true });
   const lipidLabel = ["%cLIPID", color("blue", "orange")];
   const log = (label, ...args) => {
+    window.lipid.log.push([label, ...args]);
     if(label.isLabel) {
       console.log(`${lipidLabel[0]}%c${label.text}`, lipidLabel[1], color(label.background, label.foreground), ...args);
     }
@@ -47,7 +48,6 @@
       console.log(...lipidLabel, label, ...args);
     }
   };
-  log("LiveIntent Prebid Identity Debugger is active");
 
   window.lipid = {
     storeConfig: () => {
@@ -57,8 +57,10 @@
     clearConfig: () => {
       localStorage.removeItem('LIPID');
       log('Stored config reset. Reload the page.');
-    }
+    },
+    log: []
   };
+  log("LiveIntent Prebid Identity Debugger is active");
   const storedConfig = localStorage.getItem('LIPID');
   if(storedConfig) {
     const parsedConfig = JSON.parse(storedConfig);
