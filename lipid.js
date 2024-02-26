@@ -2,7 +2,7 @@
 // @name         LIPID (LiveIntent Prebid Identity Debugger)
 // @namespace    LiveIntent
 // @homepage     https://github.com/LiveIntent/lipid
-// @version      2024-02-23_2
+// @version      2024-02-24_1
 // @description  Diagnose configuration and environmental issues with LiveIntent's Prebid.js Identity Module
 // @match        https://*/*
 // @author       phillip@liveintent.com <Phillip Markert>
@@ -15,17 +15,23 @@
 
 (function() {
 'use strict';
-  // start liveintent module init and measurement v1.3
+  // lipid module init and measurement v2.0
 
   const DEFAULT_CONFIG = {
-    override_auction_delay: false,
-    prebid_window_property_name: 'pbjs',
-    googletag_window_property_name: 'googletag',
-    googletag_reporting_key: 'li-module-enabled',
-    googletag_reporting_control_values: [ 'lcid0', 'off', 't0', 't0-e0', 't0-e0-ws', 't0-e0-wa' ],
-    googletag_reporting_treated_values: [ 'lcid1', 'on', 't1', 't1-e0', 't1-e1', 't1-e0-ws', 't1-e0-wa', 't1-e1-ws', 't1-e1-wa' ],
-    prebid_start_timeout: 5000,
-    googletag_start_timeout: 5000
+    prebid: {
+      window_property_name: 'pbjs',
+      start_timeout: 5000,
+      override_auction_delay: false,
+      use_cmd_vs_que: false,
+    },
+    googletag: {
+      window_property_name: 'googletag',
+      start_timeout: 5000,
+      reporting_key: 'li-module-enabled',
+      reporting_control_values: [ 'lcid0', 'off', 't0', 't0-e0', 't0-e0-ws', 't0-e0-wa' ],
+      reporting_treated_values: [ 'lcid1', 'on', 't1', 't1-e0', 't1-e1', 't1-e0-ws', 't1-e0-wa', 't1-e1-ws', 't1-e1-wa' ],
+    },
+    version: 2
   };
 
   // Set to false by default, or a number of milliseconds to override the auctionDelay
@@ -55,29 +61,35 @@
   };
   const storedConfig = localStorage.getItem('LIPID');
   if(storedConfig) {
-    window.lipid.config = JSON.parse(storedConfig);
-    log("Loaded stored config overrides: ", window.lipid.config);
+    const parsedConfig = JSON.parse(storedConfig);
+    if(parsedConfig.version !== DEFAULT_CONFIG.version) {
+      log(label("ERROR:", "red", "white"), "Your custom stored lipid config is from an older, incompatible version. This configuration will be ignored and the default will be used.");
+    }
+    else {
+      window.lipid.config = parsedConfig;
+      log("Loaded stored config overrides: ", window.lipid.config);
+    }
   }
   const config = (window.lipid.config = window.lipid.config ?? DEFAULT_CONFIG);
 
 
   // This timeout checks to see if Prebid starts up and processes the queue
   const auctionStart = window.setTimeout(() => {
-    if(!window._pbjsGlobals?.includes?.(config.prebid_window_property_name)) {
-      log(label("INFO:", "red", "white"), `window._pbjsGlobals (${window._pbjsGlobals}) does not match the configured lipid.config.prebid_window_property_name (${config.prebid_window_property_name}). To automatically update this value, run `, "lipid.config.prebid_window_property_name = window._pbjsGlobals[0]; lipid.storeConfig()", " and reload the page.");
+    if(!window._pbjsGlobals?.includes?.(config.prebid.window_property_name)) {
+      log(label("INFO:", "red", "white"), `window._pbjsGlobals (${window._pbjsGlobals}) does not match the configured lipid.config.prebid.window_property_name (${config.prebid.window_property_name}). To automatically update this value, run `, "lipid.config.prebid_window_property_name = window._pbjsGlobals[0]; lipid.storeConfig()", " and reload the page.");
     }
     else {
-      log(label("WARNING:", "yellow", "black"), `window.${config.prebid_window_property_name}.que did not get processed within a reasonable timeout (${config.prebid_start_timeout}ms). Is Prebid running on the page? If so, check that config.prebid_window_property_name is configured in LIPID to match the name the publisher gave to the prebid global window property.`);
+      log(label("WARNING:", "yellow", "black"), `window.${config.prebid.window_property_name}.que did not get processed within a reasonable timeout (${config.prebid.start_timeout}ms). Is Prebid running on the page? If so, check that config.prebid.window_property_name is configured in LIPID to match the name the publisher gave to the prebid global window property.`);
     }
-  }, config.prebid_start_timeout);
+  }, config.prebid.start_timeout);
   const googletagStart = window.setTimeout(() => {
-    log(label("GAM SETUP:", "yellow", "black"), `window.${config.googletag_window_property_name}.cmd did not get processed within a reasonable timeout (${config.googletag_start_timeout}ms). Is googletag running on the page? If so, check that the config.googletag_window_property_name value matches the name of the googletag global window property.`);
-  }, config.googletag_start_timeout);
+    log(label("GAM SETUP:", "yellow", "black"), `window.${config.googletag.window_property_name}.cmd did not get processed within a reasonable timeout (${config.googletag.start_timeout}ms). Is googletag running on the page? If so, check that the config.googletag.window_property_name value matches the name of the googletag global window property. Without this, some lipid reporting may be incorrect about CONTROL vs. TREATED groups.`);
+  }, config.googletag.start_timeout);
 
-  if(!!window[config.prebid_window_property_name]) log(label("WARNING:", 'red'), `window.${config.prebid_window_property_name} already exists. The LIPID script may not have been logged earlier config changes.`);
+  if(!!window[config.prebid.window_property_name]) log(label("WARNING:", 'red'), `window.${config.prebid.window_property_name} already exists. The LIPID script may not have been logged earlier config changes.`);
 
-  const googletag = (window[config.googletag_window_property_name] = window[config.googletag_window_property_name] ?? { cmd: [] });
-  const pbjs = (window[config.prebid_window_property_name] = window[config.prebid_window_property_name] ?? { que: [] });
+  const googletag = (window[config.googletag.window_property_name] = window[config.googletag.window_property_name] ?? { cmd: [] });
+  const pbjs = (window[config.prebid.window_property_name] = window[config.prebid.window_property_name] ?? { que: [], cmd: [] });
   const bidWasEnriched = (bid) => bid.userIdAsEids?.some((eid) => eid.source === "liveintent.com" || eid.uids?.some((uid) => uid.ext?.provider === "liveintent.com"));
   const moduleIsInstalled = () => pbjs.installedModules.includes("liveIntentIdSystem");
   const moduleConfig = () => pbjs.getConfig().userSync.userIds?.find(module => module.name==="liveIntentId");
@@ -89,7 +101,7 @@
     window.clearTimeout(googletagStart); // GoogleTag was initialized, so clear the timeout.
   });
 
-  pbjs.que.push(() => {
+  pbjs[config.prebid.use_cmd_vs_que ? 'cmd' : 'que'].push(() => {
     // troubleshooting steps - Prebid Initialization
     window.clearTimeout(auctionStart); // Prebid was initialized, so clear the timeout.
     if(!moduleIsInstalled()) {
@@ -111,10 +123,11 @@
     });
 
     // Uncomment these lines to override auctionDelay
-    if(config.override_auction_delay!==false) {
+    if(config.prebid.override_auction_delay!==false) {
+      // NOTE: push to cmd from que callback in an attempt to be last processed and avoid being overwritten by other init scripts. We want this to be done as late in the init sequence as possible.
       pbjs.cmd.push(() => {
-        log(label("OVERRIDE:", "orange", "black"), `Overriding auction delay to ${config.override_auction_delay}`);
-        pbjs.setConfig({ userSync: { auctionDelay: config.override_auction_delay}});
+        log(label("OVERRIDE:", "orange", "black"), `Overriding auction delay to ${config.prebid.override_auction_delay}`);
+        pbjs.setConfig({ userSync: { auctionDelay: config.prebid.override_auction_delay}});
       });
     }
 
@@ -158,56 +171,10 @@
         }
         firstAuction = false;
         if(!currentModuleConfig) {
-          log(label("ERROR:", "red"), "liveIntentId module is not configured at the start of the auction. Bids will not be enriched.");
+          log(label("ERROR:", "red"), "liveIntentId module is not configured at the start of the auction. Bids will not be enriched. NOTE: If this visit was selected for the CONTROL group, this is not an error, but is actually expected.");
         }
         if(!auctionWasEnriched) {
           log(label("INFO:", "magenta", "white"), "This auction was not enriched. Either due to a mis-configuration, a timeout, or perhaps the user was just not resolved to have any identifiers.");
-        }
-        if(!window.googletag) {
-          log(label("GAM SETUP:", "orange", "white"), "window.googletag is not set. GAM Targeting does not appear to be enabled for this page.");
-        }
-        else {
-          googletag.cmd.push(() => {
-            try {
-              const targetingKeys = window.googletag.pubads().getTargetingKeys();
-              if(!targetingKeys.includes(config.googletag_reporting_key)) {
-                log(label("GAM SETUP:", "yellow", "black"), `window.googletag.pubads().getTargetingKeys() does not contain the expected key '${config.googletag_reporting_key}'. Either the GOOGLETAG_REPORTING_KEY in LIPID does not match (did the publisher pick a custom reporting key?), or reporting was not properly enabled.`, "Available Targeting Keys", targetingKeys);
-              }
-              else {
-                const liTargetingValue = window.googletag.pubads().getTargeting(config.googletag_reporting_key);
-                if(liTargetingValue.length===0) {
-                  log(label("GAM SETUP:", "orange", "white"), `window.googletag.pubads().getTargeting('${config.googletag_reporting_key}') is missing or empty. Targeting has not been set correctly.`);
-                }
-                else if(liTargetingValue.length>1) {
-                  log(label("GAM SETUP:", "red", "white"), `window.googletag.pubads().getTargeting('${config.googletag_reporting_key}') contained multiple values. Targeting has not been set correctly.`, liTargetingValue);
-                }
-                else {
-                  if(config.googletag_reporting_control_values.includes(liTargetingValue[0])) {
-                    if(currentModuleConfig && currentConfig.userSync.syncEnabled!==false) {
-                      log(label("GAM SETUP:", "red", "white"), `window.googletag.pubads().getTargeting('${config.googletag_reporting_key}') indicates CONTROL group, but module is enabled and active. The control group will be polluted if the auction is enriched.`, "Targeting value is", liTargetingValue);
-                    }
-                    else {
-                      log(label("INFO:", "cyan", "black"), `User is in the CONTROL group. Targeting value is ${liTargetingValue}`);
-                    }
-                  }
-                  else if(config.googletag_reporting_treated_values.includes(liTargetingValue[0])) {
-                    if(!currentModuleConfig || currentConfig.userSync.syncEnabled===false) {
-                      log(label("GAM SETUP:", "red", "white"), `window.googletag.pubads().getTargeting('${config.googletag_reporting_key}') indicates TREATED group, but module is not enabled or active. The test group will not be enriched and lowers the lift.`, "Targeting value is", liTargetingValue);
-                    }
-                    else {
-                      log(label("INFO:", "cyan", "black"), `User is in the TREATED group. Targeting value is ${liTargetingValue}`);
-                    }
-                  }
-                  else {
-                    log(label("GAM SETUP:", "red", "white"), `window.googletag.pubads().getTargeting('${config.googletag_reporting_key}') return a value (${liTargetingValue}) that was not expected for either the treated or control groups. If this value is expected, please add it to the control or treated values array in the lipid.config and reload the page.`);
-                  }
-                }
-              }
-            }
-            catch (e) {
-              log(label("LIPID EXCEPTION", "red", "white"), "Unhandled exception during auctionInit googletag evaluation", e);
-            }
-          });
         }
       }
       catch(e) {
@@ -219,6 +186,49 @@
       const auctionWasEnriched = args.bidderRequests.some(br => br.bids.some(bidWasEnriched));
       const auctionTotalCpm = (pbjs.getHighestCpmBids()??[]).reduce((carry, bid) => carry + bid.cpm, 0);
       fireLIMetric(label("auctionEnd", "green", "white"), { auctionId: args.auctionId, enriched: auctionWasEnriched, cpm: auctionTotalCpm });
+      googletag.cmd.push(() => {
+        const currentModuleConfig = moduleConfig();
+        const currentConfig = pbjs.getConfig();
+        try {
+          const targetingKeys = window.googletag.pubads().getTargetingKeys();
+          if(!targetingKeys.includes(config.googletag.reporting_key)) {
+            log(label("GAM SETUP:", "yellow", "black"), `window.googletag.pubads().getTargetingKeys() does not contain the expected key '${config.googletag.reporting_key}'. Either the config.googletag.reporting_key in LIPID does not match (did the publisher pick a custom reporting key?), or reporting was not properly enabled.`, "Available Targeting Keys", targetingKeys);
+          }
+          else {
+            const liTargetingValue = window.googletag.pubads().getTargeting(config.googletag.reporting_key);
+            if(liTargetingValue.length===0) {
+              log(label("GAM SETUP:", "orange", "white"), `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') is missing or empty. Targeting has not been set correctly.`);
+            }
+            else if(liTargetingValue.length>1) {
+              log(label("GAM SETUP:", "red", "white"), `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') contained multiple values. Targeting has not been set correctly.`, liTargetingValue);
+            }
+            else {
+              if(config.googletag.reporting_control_values.includes(liTargetingValue[0])) {
+                if(currentModuleConfig && currentConfig.userSync.syncEnabled!==false) {
+                  log(label("GAM SETUP:", "red", "white"), `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') indicates CONTROL group, but module is enabled and active. The control group will be polluted if the auction is enriched.`, "Targeting value is", liTargetingValue);
+                }
+                else {
+                  log(label("INFO:", "cyan", "black"), `User is in the CONTROL group. Targeting value is ${liTargetingValue}`);
+                }
+              }
+              else if(config.googletag.reporting_treated_values.includes(liTargetingValue[0])) {
+                if(!currentModuleConfig || currentConfig.userSync.syncEnabled===false) {
+                  log(label("GAM SETUP:", "red", "white"), `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') indicates TREATED group, but module is not enabled or active. The test group will not be enriched and lowers the lift.`, "Targeting value is", liTargetingValue);
+                }
+                else {
+                  log(label("INFO:", "cyan", "black"), `User is in the TREATED group. Targeting value is ${liTargetingValue}`);
+                }
+              }
+              else {
+                log(label("GAM SETUP:", "red", "white"), `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') return a value (${liTargetingValue}) that was not expected for either the treated or control groups. If this value is expected, please add it to the control or treated values array in the lipid.config and reload the page.`);
+              }
+            }
+          }
+        }
+        catch (e) {
+          log(label("LIPID EXCEPTION", "red", "white"), "Unhandled exception during auctionEnd googletag evaluation", e);
+        }
+      });
     });
 
     pbjs.onEvent("adRenderSucceeded", ({ bid }) => {
