@@ -2,7 +2,7 @@
 // @name         LIPID (LiveIntent Prebid Identity Debugger)
 // @namespace    LiveIntent
 // @homepage     https://github.com/LiveIntent/lipid
-// @version      2024-02-24_2
+// @version      2024-03-15_1
 // @description  Diagnose configuration and environmental issues with LiveIntent's Prebid.js Identity Module
 // @match        https://*/*
 // @author       phillip@liveintent.com <Phillip Markert>
@@ -104,6 +104,7 @@
   });
 
   pbjs[config.prebid.use_cmd_vs_que ? 'cmd' : 'que'].push(() => {
+    log(label("INFO:", "green", "white"), "Initial prebid configuration", pbjs.getConfig());
     // troubleshooting steps - Prebid Initialization
     window.clearTimeout(auctionStart); // Prebid was initialized, so clear the timeout.
     if(!moduleIsInstalled()) {
@@ -240,4 +241,3 @@
   });
     // end liveintent module init and measurement
 })();
-
