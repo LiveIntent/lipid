@@ -2,7 +2,7 @@
 // @name         LIPID (LiveIntent Prebid Identity Debugger)
 // @namespace    LiveIntent
 // @homepage     https://github.com/LiveIntent/lipid
-// @version      2024-03-15_1
+// @version      2024-03-18_1
 // @description  Diagnose configuration and environmental issues with LiveIntent's Prebid.js Identity Module
 // @match        https://*/*
 // @author       phillip@liveintent.com <Phillip Markert>
@@ -84,6 +84,7 @@
   }
   const config = (window.lipid.config = window.lipid.config ?? DEFAULT_CONFIG);
 
+  let existingTargetingValue = [];
 
   // This timeout checks to see if Prebid starts up and processes the queue
   const auctionStart = window.setTimeout(() => {
@@ -114,6 +115,13 @@
 
   googletag.cmd.push(() => {
     window.clearTimeout(googletagStart); // GoogleTag was initialized, so clear the timeout.
+    window.setInterval(() => {
+      const liTargetingValue = window.googletag.pubads().getTargeting(config.googletag.reporting_key);
+      if (existingTargetingValue.length!=liTargetingValue.length || existingTargetingValue.some((a,i) => a!==liTargetingValue[i])) {
+        log(level.INFO, `Targeting value is set to ${liTargetingValue}`);
+        existingTargetingValue = liTargetingValue;
+      }
+    }, 1000);
   });
 
   const hookQ = config.prebid.use_cmd_vs_que ? 'cmd' : 'que';
