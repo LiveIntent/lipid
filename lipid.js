@@ -188,14 +188,60 @@
               log(level.ERROR, "No publisherId or distributorId is configured on the liveIntentId module", "Current params:", currentModuleConfig.params);
             }
           }
+          googletag.cmd.push(() => {
+            const currentModuleConfig = moduleConfig();
+            const currentConfig = pbjs.getConfig();
+            try {
+              const targetingKeys = window.googletag.pubads().getTargetingKeys();
+              if(!targetingKeys.includes(config.googletag.reporting_key)) {
+                log(level.WARNING, `window.googletag.pubads().getTargetingKeys() does not contain the expected key '${config.googletag.reporting_key}'. Either the config.googletag.reporting_key in LIPID does not match (did the publisher pick a custom reporting key?), or reporting was not properly enabled.`, "Available Targeting Keys", targetingKeys);
+              }
+              else {
+                const liTargetingValue = window.googletag.pubads().getTargeting(config.googletag.reporting_key);
+                if(liTargetingValue.length===0) {
+                  log(level.WARNING, `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') is missing or empty. Targeting has not been set correctly.`);
+                }
+                else if(liTargetingValue.length>1) {
+                  log(level.ERROR, `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') contained multiple values. Targeting has not been set correctly.`, liTargetingValue);
+                }
+                else {
+                  if(config.googletag.reporting_control_values.includes(liTargetingValue[0])) {
+                    if(currentModuleConfig && currentConfig.userSync.syncEnabled!==false) {
+                      log(level.ERROR, `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') indicates CONTROL group, but module is enabled and active. The control group will be polluted if the auction is enriched.`, "Targeting value is", liTargetingValue);
+                    }
+                    else if(auctionWasEnriched) {
+                      log(level.ERROR, `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') indicates CONTROL group, but auction was enriched. The control group was polluted.`, "Targeting value is", liTargetingValue);
+                    }
+                    else {
+                      log(level.INFO, `User is in the CONTROL group. Auction was purposefully not enriched. Targeting value is ${liTargetingValue}`);
+                    }
+                  }
+                  else if(config.googletag.reporting_treated_values.includes(liTargetingValue[0])) {
+                    if(!currentModuleConfig) {
+                      log(level.ERROR, "liveIntentId module is not configured at the start of the auction. Bids will not be enriched.");
+                    }
+                    if(!auctionWasEnriched) {
+                      log(level.WARNING, "This auction was not enriched. Either due to a mis-configuration, a timeout, or perhaps the user was just not resolved to have any identifiers.");
+                    }
+                    if(!currentModuleConfig || currentConfig.userSync.syncEnabled===false) {
+                      log(level.ERROR, `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') indicates TREATED group, but module is not enabled or active. The test group will not be enriched and lowers the lift.`, "Targeting value is", liTargetingValue);
+                    }
+                    else {
+                      log(level.INFO, `User is in the TREATED group. Targeting value is ${liTargetingValue}`);
+                    }
+                  }
+                  else {
+                    log(level.ERROR, `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') returned a value (${liTargetingValue}) that was not expected for either the treated or control groups. If this value is expected, please add it to the control or treated values array in the lipid.config and reload the page.`);
+                  }
+                }
+              }
+            }
+            catch (e) {
+              log(level.ERROR, "Unhandled exception during auctionEnd googletag evaluation", e);
+            }
+          });
         }
         firstAuction = false;
-        if(!currentModuleConfig) {
-          log(level.ERROR, "liveIntentId module is not configured at the start of the auction. Bids will not be enriched. NOTE: If this visit was selected for the CONTROL group, this is not an error, but is actually expected.");
-        }
-        if(!auctionWasEnriched) {
-          log(level.WARNING, "This auction was not enriched. Either due to a mis-configuration, a timeout, or perhaps the user was just not resolved to have any identifiers.");
-        }
       }
       catch(e) {
         log(level.PROBLEM, "Unhandled exception during auctionInit", e);
@@ -206,49 +252,6 @@
       const auctionWasEnriched = args.bidderRequests.some(br => br.bids.some(bidWasEnriched));
       const auctionTotalCpm = (pbjs.getHighestCpmBids()??[]).reduce((carry, bid) => carry + bid.cpm, 0);
       fireLIMetric("auctionEnd", { auctionId: args.auctionId, enriched: auctionWasEnriched, cpm: auctionTotalCpm });
-      googletag.cmd.push(() => {
-        const currentModuleConfig = moduleConfig();
-        const currentConfig = pbjs.getConfig();
-        try {
-          const targetingKeys = window.googletag.pubads().getTargetingKeys();
-          if(!targetingKeys.includes(config.googletag.reporting_key)) {
-            log(level.WARNING, `window.googletag.pubads().getTargetingKeys() does not contain the expected key '${config.googletag.reporting_key}'. Either the config.googletag.reporting_key in LIPID does not match (did the publisher pick a custom reporting key?), or reporting was not properly enabled.`, "Available Targeting Keys", targetingKeys);
-          }
-          else {
-            const liTargetingValue = window.googletag.pubads().getTargeting(config.googletag.reporting_key);
-            if(liTargetingValue.length===0) {
-              log(level.WARNING, `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') is missing or empty. Targeting has not been set correctly.`);
-            }
-            else if(liTargetingValue.length>1) {
-              log(level.ERROR, `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') contained multiple values. Targeting has not been set correctly.`, liTargetingValue);
-            }
-            else {
-              if(config.googletag.reporting_control_values.includes(liTargetingValue[0])) {
-                if(currentModuleConfig && currentConfig.userSync.syncEnabled!==false) {
-                  log(level.ERROR, `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') indicates CONTROL group, but module is enabled and active. The control group will be polluted if the auction is enriched.`, "Targeting value is", liTargetingValue);
-                }
-                else {
-                  log(level.INFO, `User is in the CONTROL group. Targeting value is ${liTargetingValue}`);
-                }
-              }
-              else if(config.googletag.reporting_treated_values.includes(liTargetingValue[0])) {
-                if(!currentModuleConfig || currentConfig.userSync.syncEnabled===false) {
-                  log(level.ERROR, `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') indicates TREATED group, but module is not enabled or active. The test group will not be enriched and lowers the lift.`, "Targeting value is", liTargetingValue);
-                }
-                else {
-                  log(level.INFO, `User is in the TREATED group. Targeting value is ${liTargetingValue}`);
-                }
-              }
-              else {
-                log(level.ERROR, `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') return a value (${liTargetingValue}) that was not expected for either the treated or control groups. If this value is expected, please add it to the control or treated values array in the lipid.config and reload the page.`);
-              }
-            }
-          }
-        }
-        catch (e) {
-          log(level.ERROR, "Unhandled exception during auctionEnd googletag evaluation", e);
-        }
-      });
     });
 
     pbjs.onEvent("adRenderSucceeded", ({ bid }) => {
