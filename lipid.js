@@ -2,7 +2,7 @@
 // @name         LIPID (LiveIntent Prebid Identity Debugger)
 // @namespace    LiveIntent
 // @homepage     https://github.com/LiveIntent/lipid
-// @version      2024-03-18_1
+// @version      2024-03-19_1
 // @description  Diagnose configuration and environmental issues with LiveIntent's Prebid.js Identity Module
 // @match        https://*/*
 // @author       phillip@liveintent.com <Phillip Markert>
@@ -27,6 +27,7 @@
     googletag: {
       window_property_name: 'googletag',
       start_timeout: 5000,
+      polling_interval: 1000,
       reporting_key: 'li-module-enabled',
       reporting_control_values: [ 'lcid0', 'off', 't0', 't0-e0', 't0-e0-ws', 't0-e0-wa' ],
       reporting_treated_values: [ 'lcid1', 'on', 't1', 't1-e0', 't1-e1', 't1-e0-ws', 't1-e0-wa', 't1-e1-ws', 't1-e1-wa' ],
@@ -121,7 +122,7 @@
         log(level.INFO, `Targeting value is set to ${liTargetingValue}`);
         existingTargetingValue = liTargetingValue;
       }
-    }, 1000);
+    }, config.googletag.polling_interval);
   });
 
   const hookQ = config.prebid.use_cmd_vs_que ? 'cmd' : 'que';
