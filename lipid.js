@@ -2,7 +2,7 @@
 // @name         LIPID (LiveIntent Prebid Identity Debugger)
 // @namespace    LiveIntent
 // @homepage     https://github.com/LiveIntent/lipid
-// @version      2024-03-19_1
+// @version      2024-03-19_2
 // @description  Diagnose configuration and environmental issues with LiveIntent's Prebid.js Identity Module
 // @match        https://*/*
 // @author       phillip@liveintent.com <Phillip Markert>
@@ -59,6 +59,9 @@
         "t1-e1-ws",
         "t1-e1-wa",
       ],
+      // Set to true (CONTROL) or false (TREATED) to override the control group setting to allow lipid to do analysis
+      // even if the reporting values are not set properly on the page. Leave as undefined to use the page-level setting.
+      override_control_group: undefined,
     },
     // The version of the configuration. This is used to detect incompatible stored configurations.
     version: 3,
@@ -128,6 +131,15 @@
     }
   }
   const config = (window.lipid.config = window.lipid.config ?? DEFAULT_CONFIG);
+
+  if (config.googletag.override_control_group !== undefined) {
+    log(
+      level.LIPID,
+      `NOTE: Control group reporting is overridden via config to ${
+        config.googletag.override_control_group ? "CONTROL" : "TREATED"
+      }. This is to allow lipid to continue analysis even when reporting values are not properly set. If this overridden value does not match the actual page-level setting, you will see incorrect messages from lipid.`
+    );
+  }
 
   // Use a timeout to check if Prebid and GoogleTag start up and processes the queue
   const auctionStart = window.setTimeout(() => {
@@ -220,6 +232,7 @@
 
   const lipidHook = () => {
     window.clearTimeout(auctionStart); // Prebid was initialized, so clear the timeout.
+    // TODO - find hook and then check all previous ones for emitPrebidConfig
     if (pbjs[hookQ].length === 0 || pbjs[hookQ][0].name !== "lipidHook") {
       log(
         level.LIPID,
@@ -299,7 +312,10 @@
               const targetingKeys = window.googletag
                 .pubads()
                 .getTargetingKeys();
-              if (!targetingKeys.includes(config.googletag.reporting_key)) {
+              if (
+                config.googletag.override_control_group === undefined &&
+                !targetingKeys.includes(config.googletag.reporting_key)
+              ) {
                 log(
                   level.WARNING,
                   `window.googletag.pubads().getTargetingKeys() does not contain the expected key '${config.googletag.reporting_key}'. Either the config.googletag.reporting_key in LIPID does not match (did the publisher pick a custom reporting key?), or reporting was not properly enabled.`,
@@ -310,7 +326,10 @@
                 const liTargetingValue = window.googletag
                   .pubads()
                   .getTargeting(config.googletag.reporting_key);
-                if (liTargetingValue.length === 0) {
+                if (
+                  config.googletag.override_control_group === undefined &&
+                  liTargetingValue.length === 0
+                ) {
                   log(
                     level.WARNING,
                     `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') is missing or empty. Targeting has not been set correctly.`
@@ -323,6 +342,7 @@
                 } else {
                   // CONTROL group selected
                   if (
+                    config.googletag.override_control_group === true ||
                     config.googletag.reporting_control_values.includes(
                       liTargetingValue[0]
                     )
@@ -356,6 +376,7 @@
                   }
                   // TREATED group selected
                   else if (
+                    config.googletag.override_control_group === false ||
                     config.googletag.reporting_treated_values.includes(
                       liTargetingValue[0]
                     )
