@@ -2,7 +2,7 @@
 // @name         LIPID (LiveIntent Prebid Identity Debugger)
 // @namespace    LiveIntent
 // @homepage     https://github.com/LiveIntent/lipid
-// @version      2024-03-19_3
+// @version      2024-03-19_4
 // @description  Diagnose configuration and environmental issues with LiveIntent's Prebid.js Identity Module
 // @match        https://*/*
 // @author       phillip@liveintent.com <Phillip Markert>
@@ -143,7 +143,14 @@
 
   // Use a timeout to check if Prebid and GoogleTag start up and processes the queue
   const auctionStart = window.setTimeout(() => {
-    if (!window._pbjsGlobals?.includes?.(config.prebid.window_property_name)) {
+    if (!window._pbjsGlobals) {
+      log(
+        level.ERROR,
+        `window._pbjsGlobals is not set is Prebid.js installed on the page?`
+      );
+    } else if (
+      !window._pbjsGlobals?.includes?.(config.prebid.window_property_name)
+    ) {
       log(
         level.LIPID,
         `window._pbjsGlobals (${window._pbjsGlobals}) does not include the configured lipid.config.prebid.window_property_name (${config.prebid.window_property_name}). To automatically update this value, run `,
