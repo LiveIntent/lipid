@@ -2,7 +2,7 @@
 // @name         LIPID (LiveIntent Prebid Identity Debugger)
 // @namespace    LiveIntent
 // @homepage     https://github.com/LiveIntent/lipid
-// @version      2024-03-19_2
+// @version      2024-03-19_3
 // @description  Diagnose configuration and environmental issues with LiveIntent's Prebid.js Identity Module
 // @match        https://*/*
 // @author       phillip@liveintent.com <Phillip Markert>
@@ -280,7 +280,7 @@
       // in an attempt to be last processed action before the auction starts and avoid being overwritten by other init scripts.
       pbjs.cmd.push(() => {
         log(
-          level.DEBUG,
+          level.LIPID,
           `Overriding auction delay to ${config.prebid.override_auction_delay}`
         );
         pbjs.setConfig({
@@ -497,11 +497,11 @@
                           currentModuleConfig.params
                         );
                       }
+                      log(
+                        level.INFO,
+                        `User is in the TREATED group and auction was enriched.`
+                      );
                     }
-                    log(
-                      level.INFO,
-                      `User is in the TREATED group and auction was enriched.`
-                    );
                   }
                   // Unknown targeting value
                   else {
