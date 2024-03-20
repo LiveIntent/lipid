@@ -2,7 +2,7 @@
 // @name         LIPID (LiveIntent Prebid Identity Debugger)
 // @namespace    LiveIntent
 // @homepage     https://github.com/LiveIntent/lipid
-// @version      2024-03-19_4
+// @version      2024-03-20_1
 // @description  Diagnose configuration and environmental issues with LiveIntent's Prebid.js Identity Module
 // @match        https://*/*
 // @author       phillip@liveintent.com <Phillip Markert>
@@ -199,6 +199,10 @@
       moduleIsInstalled: moduleIsInstalled(),
     });
 
+  // Necessary to prevent quantum tunneling where an object is logged to the Chrome console,
+  // but then the object is updated asynchronously before Chrome has a chance to display it.
+  const snapshot = (obj) => JSON.parse(JSON.stringify(obj));
+
   // Enables checking for unconfiguration later in the page lifecycle
   let moduleEverConfigured = false;
   let moduleStorageEverConfigured = false;
@@ -255,8 +259,9 @@
       );
     }
 
+    log(level.INFO, "Initial prebid configuration", snapshot(pbjs.getConfig()));
     pbjs.getConfig("userSync", ({ userSync }) => {
-      log(level.INFO, "setConfig(userSync)", userSync);
+      log(level.INFO, "setConfig(userSync)", snapshot(userSync));
       let newModuleConfig = userSync.userIds?.find(
         (module) => module.name === "liveIntentId"
       );
@@ -276,10 +281,9 @@
           "LiveIntent module does not have storage configured in the updated configuration, but previously had storage configured on this page. Removing the storageConfiguration from the userId module may not have the intended effect and IDs may have already been resolved/stored."
         );
       }
-      if (!!newModuleConfig) moduleEverConfigured = true;
-      if (!!newModuleConfig?.storage) moduleStorageEverConfigured = true;
+      if (newModuleConfig) moduleEverConfigured = true;
+      if (newModuleConfig?.storage) moduleStorageEverConfigured = true;
     });
-    log(level.INFO, "Initial prebid configuration", pbjs.getConfig());
 
     if (config.prebid.override_auction_delay !== false) {
       // NOTE: We want this to be done as late in the init sequence as possible.
@@ -312,7 +316,7 @@
           // Don't report these errors for every auction on the page.
           firstAuction = false;
 
-          const currentConfig = pbjs.getConfig();
+          const currentConfig = snapshot(pbjs.getConfig());
           const currentModuleConfig = moduleConfig();
           googletag.cmd.push(() => {
             try {
