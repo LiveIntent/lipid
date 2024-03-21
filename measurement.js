@@ -11,33 +11,34 @@
 
 (function () {
   // start liveintent module init and measurement script v1.6
-  const pbjs = (window.pbjs = window.pbjs || { que: [] });
+  const pbjs = (window.pbjs = window.pbjs || { cmd: [] });
 
-  pbjs.que.push(() => {
-    const googletag = (window.googletag = window.googletag || { cmd: [] });
-
-    function setTargeting(enriched, wonAll) {
-      googletag.cmd.push(function () {
-        // t1 = module enabled, t0 = module disabled
-        let targeting = liModule.enabled ? "t1" : "t0";
-        // e1 = enriched, e0 = not enriched
-        if (enriched !== undefined) targeting += enriched ? "-e1" : "-e0";
-        // wa = Prebid won all ad-slots, ws = Prebid won some ad-slots
-        if (wonAll !== undefined) targeting += wonAll ? "-wa" : "-ws";
-        googletag.pubads().setTargeting(liModule.reportingKey, targeting);
-      });
-    }
-
-    const liModuleConfigured = pbjs.getConfig.userSync.userIds?.some(
+  pbjs.cmd.push(() => {
+    const userSync = pbjs.getConfig().userSync;
+    // Is the module already configured
+    const liModuleConfigured = userSync.userIds?.some(
       (m) => m.name === "liveIntentId"
     );
+
+    /* 
+     Configuration Phase: Determines group (control vs. treated) and configures appropriately
+     There are three options for how to determine the group:
+     Option A: via window.liModule.enabled or window.liModuleEnabled (if set)
+     Option B: random selection based upon window.liModule.testPercentage (if set)
+     Option C: automatically if liveIntent module is configured in prebid userSync
+    */
 
     // update window.liModule w/deep merge of defaults and capture as a constant to prevent updates
     const liModule = (window.liModule = Object.assign(
       {
-        enabled: liModuleConfigured || Math.random() < 0.95,
-        reportingKey: "li-module-enabled",
-        auctionDelay: 300,
+        enabled:
+          window.liModuleEnabled ?? window.liModule.testPercentage
+            ? // normalize testPercentage to a number between 0 and 1
+              Math.random() <
+              (window.liModule.testPercentage < 1
+                ? window.liModule.testPercentage
+                : window.liModule.testPercentage / 100)
+            : liModuleConfigured,
         params: Object.assign(
           {
             requestedAttributesOverrides: {
@@ -52,24 +53,28 @@
           },
           window.liModule.params
         ),
+        reportingKey: "li-module-enabled",
+        auctionsEnriched: {},
       },
       window.liModule
     ));
-
-    // For legacy support
+    // Legacy support
     window.liModuleEnabled = liModule.enabled;
 
-    const configureLiveIntentModule = () => {
+    if (liModule.enabled && !liModuleConfigured) {
+      liModule.deferInit
+        ? setTimeout(configureLiveIntentModule, 0)
+        : configureLiveIntentModule();
+    }
+
+    function configureLiveIntentModule() {
       pbjs.mergeConfig({
         userSync: {
-          /* 300 is recommended for the best combination of resolution/performance.
-             If auctionDelay=0, then storage should be configured below. */
-          auctionDelay: liModule.auctionDelay,
           userIds: [
             Object.assign({
               name: "liveIntentId",
               params: liModule.params,
-              storage: liModule.auctionDelay
+              storage: userSync.auctionDelay
                 ? undefined
                 : {
                     expires: 1,
@@ -80,14 +85,24 @@
           ],
         },
       });
-    };
-    if (liModule.enabled && !liModuleConfigured) {
-      liModule.deferInit
-        ? setTimeout(configureLiveIntentModule, 0)
-        : configureLiveIntentModule();
     }
 
-    setTargeting(); // Only reports the t value at first.
+    // Reporting Phase: Reports the group and performance of the module
+    const googletag = (window.googletag = window.googletag || { cmd: [] });
+
+    function setTargeting(enriched, wonAll) {
+      googletag.cmd.push(function () {
+        // t1 = module enabled, t0 = module disabled
+        let targeting = liModule.enabled ? "t1" : "t0";
+        // e1 = enriched, e0 = not enriched
+        if (enriched !== undefined) targeting += enriched ? "-e1" : "-e0";
+        // wa = Prebid won all ad-slots, ws = Prebid won some ad-slots
+        if (wonAll !== undefined) targeting += wonAll ? "-wa" : "-ws";
+        googletag.pubads().setTargeting(liModule.reportingKey, targeting);
+      });
+    }
+
+    setTargeting();
 
     pbjs.onEvent("auctionInit", function (args) {
       liModule.auctionsEnriched[args.auctionId ?? 0] = args.adUnits?.some(
@@ -100,12 +115,10 @@
             )
           )
       );
-      // Reports t and e values after auctionInit event.
       setTargeting(liModule.auctionsEnriched[args.auctionId]);
     });
 
     pbjs.onEvent("adRenderSucceeded", function (args) {
-      // Reports t, e, and w values after adRenderSucceeded event.
       setTargeting(
         liModule.auctionsEnriched[args.bid.auctionId ?? 0],
         pbjs.getAllPrebidWinningBids().length === 0
