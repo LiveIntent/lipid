@@ -2,7 +2,7 @@
 // @name         LIPID (LiveIntent Prebid Identity Debugger)
 // @namespace    LiveIntent
 // @homepage     https://github.com/LiveIntent/lipid
-// @version      2024-03-20_1
+// @version      2024-03-22_1
 // @description  Diagnose configuration and environmental issues with LiveIntent's Prebid.js Identity Module
 // @match        https://*/*
 // @author       phillip@liveintent.com <Phillip Markert>
@@ -180,12 +180,11 @@
   ] ?? { que: [], cmd: [] });
 
   // Utility functions
+  const eidBelongsToLiveIntent = (eid) =>
+    eid.source === "liveintent.com" ||
+    eid.uids?.some((uid) => uid.ext?.provider === "liveintent.com");
   const bidWasEnriched = (bid) =>
-    bid.userIdAsEids?.some(
-      (eid) =>
-        eid.source === "liveintent.com" ||
-        eid.uids?.some((uid) => uid.ext?.provider === "liveintent.com")
-    );
+    bid.userIdAsEids?.some(eidBelongsToLiveIntent);
   const moduleIsInstalled = () =>
     pbjs.installedModules.includes("liveIntentIdSystem");
   const moduleConfig = () =>
@@ -302,12 +301,14 @@
 
     pbjs.onEvent("auctionInit", (args) => {
       try {
-        const auctionWasEnriched = args.bidderRequests.some((br) =>
-          br.bids.some(bidWasEnriched)
-        );
+        const enrichedBid = args.bidderRequests
+          .flatMap((br) => br.bids)
+          .find(bidWasEnriched);
+        const auctionWasEnriched = enrichedBid !== undefined;
         fireLIMetric("auctionInit", {
           auctionId: args.auctionId,
           enriched: auctionWasEnriched,
+          enrichedIds: enrichedBid?.userIdAsEids.filter(eidBelongsToLiveIntent),
           auctionDelay: pbjs.getConfig().userSync.auctionDelay,
         });
 
