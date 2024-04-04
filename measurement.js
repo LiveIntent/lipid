@@ -7,28 +7,34 @@
 // @grant        none
 // ==/UserScript==
 
-(function() {
-  // start liveintent module init and measurement v1.5
+(function () {
+  // start liveintent module init and measurement v1.5.2
   const LI_PUBLISHER_ID = "INSERT PUBLISHER_ID HERE";
   const LI_DISTRIBUTOR_ID = undefined;
   const LOGGED_IN_USERS_EMAIL_OR_EMAIL_HASH = "";
   const LI_REPORTING_KEY = "li-module-enabled";
+
   const pbjs = (window.pbjs = window.pbjs || { que: [] });
   const googletag = (window.googletag = window.googletag || { cmd: [] });
+
   const LI_MODULE_ENABLED = Math.random() < 0.95;
+
+  // Set window property for use by Amazon TAM
+  window.liModuleEnabled = LI_MODULE_ENABLED;
+
   let bidsEnriched;
-  
+
   function setTargeting(enriched, wonAll) {
     googletag.cmd.push(function () {
       let targeting = LI_MODULE_ENABLED ? "t1" : "t0";
-      if(enriched!==undefined) targeting += enriched ? "-e1" : "-e0";
-      if(wonAll!==undefined) targeting += wonAll ? "-wa" : "-ws";
+      if (enriched !== undefined) targeting += enriched ? "-e1" : "-e0";
+      if (wonAll !== undefined) targeting += wonAll ? "-wa" : "-ws";
       googletag.pubads().setTargeting(LI_REPORTING_KEY, targeting);
     });
   }
-  
+
   setTargeting();
-  
+
   pbjs.que.push(function () {
     if (LI_MODULE_ENABLED) {
       pbjs.mergeConfig({
@@ -42,13 +48,15 @@
                 distributorId: LI_DISTRIBUTOR_ID,
                 emailHash: LOGGED_IN_USERS_EMAIL_OR_EMAIL_HASH,
                 requestedAttributesOverrides: {
-                uid2: true,
-                bidswitch: true,
-                medianet: true,
-                magnite: true,
-                pubmatic: true,
-                index: true,
-                openx: true,
+                  uid2: true,
+                  bidswitch: true,
+                  medianet: true,
+                  magnite: true,
+                  pubmatic: true,
+                  index: true,
+                  openx: true,
+                  thetradedesk: true,
+                  sovrn: true,
                 },
               },
             },
@@ -56,7 +64,7 @@
         },
       });
     }
-    
+
     pbjs.onEvent("auctionInit", function (args) {
       bidsEnriched = args.adUnits && args.adUnits.some((au) => au.bids &&
         au.bids.some((b) => b.userIdAsEids && b.userIdAsEids.some((eid) => eid.source
@@ -64,7 +72,7 @@
         uid.ext.provider === "liveintent.com")))));
       setTargeting(bidsEnriched);
     });
-    
+
     pbjs.onEvent("bidWon", function (args) {
       setTargeting(bidsEnriched, pbjs.getAllPrebidWinningBids().length === 0);
     });
