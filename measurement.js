@@ -1,34 +1,38 @@
 // ==UserScript==
 // @name         LI Measurement Script
 // @namespace    http://liveintent.com
-// @version      2024-03-12-1
+// @version      2024-05-03-1
 // @description  LiveIntent PCID Initialization and GAM Measurement Script
-// @author       You
+// @author       phillip@liveintent.com
 // @grant        none
 // ==/UserScript==
 
 (function () {
-  // start liveintent module init and measurement v1.5.2
-  const LI_PUBLISHER_ID = "INSERT PUBLISHER_ID HERE";
-  const LI_DISTRIBUTOR_ID = undefined;
-  const LOGGED_IN_USERS_EMAIL_OR_EMAIL_HASH = "";
+  // start liveintent module init and measurement v1.5.3
   const LI_REPORTING_KEY = "li-module-enabled";
+
+  // Initialize ONE of the following values, but not both
+  let LI_PUBLISHER_ID; // = your LiveIntent Publisher ID
+  let LI_DISTRIBUTOR_ID; // = your LiveIntent Distributor ID (did-xxxxx)
+
+  // Initialize this value if the user is logged in
+  let LOGGED_IN_USERS_EMAIL_OR_EMAIL_HASH; // = email or email hash of logged in user
 
   const pbjs = (window.pbjs = window.pbjs || { que: [] });
   const googletag = (window.googletag = window.googletag || { cmd: [] });
 
-  const LI_MODULE_ENABLED = Math.random() < 0.95;
+  if (window.liModuleEnabled !== undefined) {
+    // To manage the control group selection externally, override the initialization of this value
+    // true = treated group, false = control group.
+    window.liModuleEnabled = Math.random() < 0.95;
+  }
 
-  // Set window property for use by Amazon TAM
-  window.liModuleEnabled = LI_MODULE_ENABLED;
+  let auctionsEnriched = {};
 
-  let bidsEnriched;
-
-  function setTargeting(enriched, wonAll) {
+  function setTargeting(enriched) {
     googletag.cmd.push(function () {
-      let targeting = LI_MODULE_ENABLED ? "t1" : "t0";
+      let targeting = window.liModuleEnabled ? "t1" : "t0";
       if (enriched !== undefined) targeting += enriched ? "-e1" : "-e0";
-      if (wonAll !== undefined) targeting += wonAll ? "-wa" : "-ws";
       googletag.pubads().setTargeting(LI_REPORTING_KEY, targeting);
     });
   }
@@ -36,7 +40,8 @@
   setTargeting();
 
   pbjs.que.push(function () {
-    if (LI_MODULE_ENABLED) {
+    // Enable the module, only if the visit is in the treated group
+    if (window.liModuleEnabled) {
       pbjs.mergeConfig({
         userSync: {
           auctionDelay: 300,
@@ -59,6 +64,11 @@
                   sovrn: true,
                 },
               },
+              storage: {
+                type: "html5",
+                name: "__tamLIResolveResult",
+                expires: 1,
+              },
             },
           ],
         },
@@ -66,15 +76,26 @@
     }
 
     pbjs.onEvent("auctionInit", function (args) {
-      bidsEnriched = args.adUnits && args.adUnits.some((au) => au.bids &&
-        au.bids.some((b) => b.userIdAsEids && b.userIdAsEids.some((eid) => eid.source
-        === "liveintent.com" || (eid.uids && eid.uids.some((uid) => uid.ext &&
-        uid.ext.provider === "liveintent.com")))));
-      setTargeting(bidsEnriched);
-    });
-
-    pbjs.onEvent("bidWon", function (args) {
-      setTargeting(bidsEnriched, pbjs.getAllPrebidWinningBids().length === 0);
+      auctionsEnriched[args.auctionId] =
+        args.adUnits &&
+        args.adUnits.some(
+          (au) =>
+            au.bids &&
+            au.bids.some(
+              (b) =>
+                b.userIdAsEids &&
+                b.userIdAsEids.some(
+                  (eid) =>
+                    eid.source === "liveintent.com" ||
+                    (eid.uids &&
+                      eid.uids.some(
+                        (uid) =>
+                          uid.ext && uid.ext.provider === "liveintent.com"
+                      ))
+                )
+            )
+        );
+      setTargeting(auctionsEnriched[args.auctionId]);
     });
   });
   // end liveintent module init and measurement
