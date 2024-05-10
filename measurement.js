@@ -13,7 +13,7 @@
 
   // Initialize ONE of the following values, but not both
   let LI_PUBLISHER_ID; // = your LiveIntent Publisher ID
-  let LI_DISTRIBUTOR_ID; // = your LiveIntent Distributor ID (did-xxxxx)
+  let LI_DISTRIBUTOR_ID; // = your LiveIntent Distributor ID (did-xxxx)
 
   // Initialize this value if the user is logged in
   let LOGGED_IN_USERS_EMAIL_OR_EMAIL_HASH; // = email or email hash of logged in user
