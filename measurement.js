@@ -8,7 +8,7 @@
 // ==/UserScript==
 
 (function () {
-  // start liveintent module init and measurement v1.5.3
+  // start liveintent module init and measurement v1.5.4
   const LI_REPORTING_KEY = "li-module-enabled";
 
   // Initialize ONE of the following values, but not both
@@ -21,10 +21,12 @@
   const pbjs = (window.pbjs = window.pbjs || { que: [] });
   const googletag = (window.googletag = window.googletag || { cmd: [] });
 
+  const TREATMENT_RATE = 0.95;
   if (window.liModuleEnabled !== undefined) {
     // To manage the control group selection externally, override the initialization of this value
     // true = treated group, false = control group.
-    window.liModuleEnabled = Math.random() < 0.95;
+    window.liModuleEnabled = Math.random() < TREATMENT_RATE;
+    window.liTreatmentRate = TREATMENT_RATE;
   }
 
   let auctionsEnriched = {};
