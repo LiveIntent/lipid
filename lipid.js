@@ -235,7 +235,7 @@
       let newModuleConfig = userSync.userIds?.find((module) => module.name === "liveIntentId");
       if (moduleEverConfigured && !newModuleConfig) {
         log(
-          level.WARNING,
+          level.ERROR,
           "LiveIntent module is not in the updated configuration, but previously had been on this page. Removing the userId module may not have the intended effect and the module may have already affected the auctions before this point"
         );
       }
