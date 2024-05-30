@@ -2,7 +2,7 @@
 // @name         LIPID (LiveIntent Prebid Identity Debugger)
 // @namespace    LiveIntent
 // @homepage     https://github.com/LiveIntent/lipid
-// @version      2024-03-22_1
+// @version      2024-05-28_1
 // @description  Diagnose configuration and environmental issues with LiveIntent's Prebid.js Identity Module
 // @match        https://*/*
 // @author       phillip@liveintent.com <Phillip Markert>
@@ -48,17 +48,7 @@
         "t0-e1-wa",
       ],
       // The values that indicate the user is in the treated group
-      reporting_treated_values: [
-        "lcid1",
-        "on",
-        "t1",
-        "t1-e0",
-        "t1-e1",
-        "t1-e0-ws",
-        "t1-e0-wa",
-        "t1-e1-ws",
-        "t1-e1-wa",
-      ],
+      reporting_treated_values: ["lcid1", "on", "t1", "t1-e0", "t1-e1", "t1-e0-ws", "t1-e0-wa", "t1-e1-ws", "t1-e1-wa"],
       // Set to true (CONTROL) or false (TREATED) to override the control group setting to allow lipid to do analysis
       // even if the reporting values are not set properly on the page. Leave as undefined to use the page-level setting.
       override_control_group: undefined,
@@ -90,12 +80,7 @@
     // Keep all messages in an array for easy access if the console is littered with other messages
     window.lipid.log.push([label, ...args]);
     if (label.isLabel) {
-      console.log(
-        `${lipidLabel[0]}%c${label.text}`,
-        lipidLabel[1],
-        color(label.background, label.foreground),
-        ...args
-      );
+      console.log(`${lipidLabel[0]}%c${label.text}`, lipidLabel[1], color(label.background, label.foreground), ...args);
     } else {
       console.log(...lipidLabel, label, ...args);
     }
@@ -144,17 +129,12 @@
   // Use a timeout to check if Prebid and GoogleTag start up and processes the queue
   const auctionStart = window.setTimeout(() => {
     if (!window._pbjsGlobals) {
-      log(
-        level.ERROR,
-        `window._pbjsGlobals is not set is Prebid.js installed on the page?`
-      );
-    } else if (
-      !window._pbjsGlobals?.includes?.(config.prebid.window_property_name)
-    ) {
+      log(level.ERROR, `window._pbjsGlobals is not set is Prebid.js installed on the page?`);
+    } else if (!window._pbjsGlobals?.includes?.(config.prebid.window_property_name)) {
       log(
         level.LIPID,
         `window._pbjsGlobals (${window._pbjsGlobals}) does not include the configured lipid.config.prebid.window_property_name (${config.prebid.window_property_name}). To automatically update this value, run `,
-        "lipid.config.prebid_window_property_name = window._pbjsGlobals[0]; lipid.storeConfig()",
+        "lipid.config.prebid.window_property_name = window._pbjsGlobals[0]; lipid.storeConfig()",
         " and reload the page."
       );
     } else {
@@ -172,25 +152,20 @@
   }, config.googletag.start_timeout);
 
   // Use the configured window property names to find the prebid and googletag instances (or create them)
-  const googletag = (window[config.googletag.window_property_name] = window[
-    config.googletag.window_property_name
-  ] ?? { cmd: [] });
-  const pbjs = (window[config.prebid.window_property_name] = window[
-    config.prebid.window_property_name
-  ] ?? { que: [], cmd: [] });
+  const googletag = (window[config.googletag.window_property_name] = window[config.googletag.window_property_name] ?? {
+    cmd: [],
+  });
+  const pbjs = (window[config.prebid.window_property_name] = window[config.prebid.window_property_name] ?? {
+    que: [],
+    cmd: [],
+  });
 
   // Utility functions
   const eidBelongsToLiveIntent = (eid) =>
-    eid.source === "liveintent.com" ||
-    eid.uids?.some((uid) => uid.ext?.provider === "liveintent.com");
-  const bidWasEnriched = (bid) =>
-    bid.userIdAsEids?.some(eidBelongsToLiveIntent);
-  const moduleIsInstalled = () =>
-    pbjs.installedModules.includes("liveIntentIdSystem");
-  const moduleConfig = () =>
-    pbjs
-      .getConfig()
-      .userSync.userIds?.find((module) => module.name === "liveIntentId");
+    eid.source === "liveintent.com" || eid.uids?.some((uid) => uid.ext?.provider === "liveintent.com");
+  const bidWasEnriched = (bid) => bid.userIdAsEids?.some(eidBelongsToLiveIntent);
+  const moduleIsInstalled = () => pbjs.installedModules.includes("liveIntentIdSystem");
+  const moduleConfig = () => pbjs.getConfig().userSync.userIds?.find((module) => module.name === "liveIntentId");
   const fireLIMetric = (eventName, event) =>
     log(level.EVENT, eventName, {
       ...event,
@@ -212,9 +187,7 @@
   googletag.cmd.push(() => {
     window.clearTimeout(googletagStart); // GoogleTag was initialized, so clear the timeout.
     window.setInterval(() => {
-      const liTargetingValue = window.googletag
-        .pubads()
-        .getTargeting(config.googletag.reporting_key);
+      const liTargetingValue = window.googletag.pubads().getTargeting(config.googletag.reporting_key);
       if (
         existingTargetingValue.length != liTargetingValue.length ||
         existingTargetingValue.some((a, i) => a !== liTargetingValue[i])
@@ -229,9 +202,7 @@
   const hookQ = config.prebid.use_cmd_vs_que ? "cmd" : "que";
   // If prebid has already processed the que, we must use .push(),
   // otherwise, use unshift() to be as early in the init processing as possible
-  const prebidQueAlreadyProcessed = !pbjs[hookQ].push
-    .toString()
-    .match(/native/);
+  const prebidQueAlreadyProcessed = !pbjs[hookQ].push.toString().match(/native/);
   if (prebidQueAlreadyProcessed) {
     log(
       level.LIPID,
@@ -261,20 +232,14 @@
     log(level.INFO, "Initial prebid configuration", snapshot(pbjs.getConfig()));
     pbjs.getConfig("userSync", ({ userSync }) => {
       log(level.INFO, "setConfig(userSync)", snapshot(userSync));
-      let newModuleConfig = userSync.userIds?.find(
-        (module) => module.name === "liveIntentId"
-      );
+      let newModuleConfig = userSync.userIds?.find((module) => module.name === "liveIntentId");
       if (moduleEverConfigured && !newModuleConfig) {
         log(
-          level.WARNING,
+          level.ERROR,
           "LiveIntent module is not in the updated configuration, but previously had been on this page. Removing the userId module may not have the intended effect and the module may have already affected the auctions before this point"
         );
       }
-      if (
-        moduleStorageEverConfigured &&
-        newModuleConfig &&
-        !newModuleConfig.storage
-      ) {
+      if (moduleStorageEverConfigured && newModuleConfig && !newModuleConfig.storage) {
         log(
           level.WARNING,
           "LiveIntent module does not have storage configured in the updated configuration, but previously had storage configured on this page. Removing the storageConfiguration from the userId module may not have the intended effect and IDs may have already been resolved/stored."
@@ -289,10 +254,7 @@
       // pbjs.cmd is processed after pbjs.que, so push the auctionDelay override to cmd from a que callback
       // in an attempt to be last processed action before the auction starts and avoid being overwritten by other init scripts.
       pbjs.cmd.push(() => {
-        log(
-          level.LIPID,
-          `Overriding auction delay to ${config.prebid.override_auction_delay}`
-        );
+        log(level.LIPID, `Overriding auction delay to ${config.prebid.override_auction_delay}`);
         pbjs.setConfig({
           userSync: { auctionDelay: config.prebid.override_auction_delay },
         });
@@ -301,9 +263,7 @@
 
     pbjs.onEvent("auctionInit", (args) => {
       try {
-        const enrichedBid = args.bidderRequests
-          .flatMap((br) => br.bids)
-          .find(bidWasEnriched);
+        const enrichedBid = args.bidderRequests.flatMap((br) => br.bids).find(bidWasEnriched);
         const auctionWasEnriched = enrichedBid !== undefined;
         fireLIMetric("auctionInit", {
           auctionId: args.auctionId,
@@ -321,9 +281,7 @@
           const currentModuleConfig = moduleConfig();
           googletag.cmd.push(() => {
             try {
-              const targetingKeys = window.googletag
-                .pubads()
-                .getTargetingKeys();
+              const targetingKeys = window.googletag.pubads().getTargetingKeys();
               if (
                 config.googletag.override_control_group === undefined &&
                 !targetingKeys.includes(config.googletag.reporting_key)
@@ -335,13 +293,8 @@
                   targetingKeys
                 );
               } else {
-                const liTargetingValue = window.googletag
-                  .pubads()
-                  .getTargeting(config.googletag.reporting_key);
-                if (
-                  config.googletag.override_control_group === undefined &&
-                  liTargetingValue.length === 0
-                ) {
+                const liTargetingValue = window.googletag.pubads().getTargeting(config.googletag.reporting_key);
+                if (config.googletag.override_control_group === undefined && liTargetingValue.length === 0) {
                   log(
                     level.WARNING,
                     `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') is missing or empty. Targeting has not been set correctly.`
@@ -352,32 +305,24 @@
                     `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') contained multiple values. Targeting has not been set correctly.`
                   );
                 } else {
-                  // CONTROL group selected
                   if (
                     config.googletag.override_control_group === true ||
-                    config.googletag.reporting_control_values.includes(
-                      liTargetingValue[0]
-                    )
+                    config.googletag.reporting_control_values.includes(liTargetingValue[0])
                   ) {
+                    // CONTROL group selected
                     if (!moduleIsInstalled()) {
                       log(
                         level.INFO,
                         `liveIntentIdSystem is not an installed module, but window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') indicates CONTROL group`
                       );
                     }
-                    if (
-                      currentModuleConfig &&
-                      currentConfig.userSync.syncEnabled !== false
-                    ) {
+                    if (currentModuleConfig && currentConfig.userSync.syncEnabled !== false) {
                       log(
                         level.WARNING,
                         `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') indicates CONTROL group, but the LiveIntent module is enabled and active, so the control group may be polluted if the auction gets enriched.`
                       );
                     } else {
-                      log(
-                        level.INFO,
-                        `User is in the CONTROL group. Auction was purposefully not enriched.`
-                      );
+                      log(level.INFO, `User is in the CONTROL group. Auction was purposefully not enriched.`);
                     }
                     if (auctionWasEnriched) {
                       log(
@@ -385,13 +330,10 @@
                         `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') indicates CONTROL group, but auction was enriched. The control group was polluted.`
                       );
                     }
-                  }
-                  // TREATED group selected
-                  else if (
+                  } else if (
+                    // TREATED group selected
                     config.googletag.override_control_group === false ||
-                    config.googletag.reporting_treated_values.includes(
-                      liTargetingValue[0]
-                    )
+                    config.googletag.reporting_treated_values.includes(liTargetingValue[0])
                   ) {
                     if (!auctionWasEnriched) {
                       // Check to see if module is installed and configured
@@ -409,11 +351,7 @@
                       } else {
                         // Check module config for proper setup
                         if (currentModuleConfig.params.publisherId) {
-                          log(
-                            level.INFO,
-                            "Configured publisherId:",
-                            currentModuleConfig.params.publisherId
-                          );
+                          log(level.INFO, "Configured publisherId:", currentModuleConfig.params.publisherId);
                           if (currentModuleConfig.params.distributorId) {
                             log(
                               level.WARNING,
@@ -423,11 +361,7 @@
                             );
                           }
                         } else if (currentModuleConfig.params.distributorId) {
-                          log(
-                            level.INFO,
-                            "Configured distributorId:",
-                            currentModuleConfig.params.distributorId
-                          );
+                          log(level.INFO, "Configured distributorId:", currentModuleConfig.params.distributorId);
                         } else {
                           log(
                             level.ERROR,
@@ -436,41 +370,57 @@
                             currentModuleConfig.params
                           );
                         }
-                      }
-                      if (currentConfig.userSync.syncEnabled === false) {
-                        log(
-                          level.ERROR,
-                          `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') indicates TREATED group, but the Prebid userSync is disabled. Bids will not be enriched.`,
-                          currentConfig.userSync
-                        );
-                      } else {
-                        // Check userSync settings
-                        if (currentConfig.userSync.auctionDelay === 0) {
-                          if (
-                            currentModuleConfig &&
-                            currentModuleConfig.storage
-                          ) {
+                        if (!currentModuleConfig.storage) {
+                          log(
+                            level.WARNING,
+                            `Prebid storage is not configured on the LiveIntent module. Enabling storage will improve page performance and user experience.`,
+                            currentConfig.userSync
+                          );
+                        } else {
+                          if (currentModuleConfig.storage.expires !== 1) {
                             log(
                               level.WARNING,
-                              "userSync.auctionDelay is set to 0 at the start of the auction. However, prebid storage IS configured on the liveIntentId module, so subsequent page views may still get first auctions enriched within the expiration period.",
-                              currentModuleConfig.storage
-                            );
-                          } else {
-                            log(
-                              level.ERROR,
-                              "userSync.auctionDelay is set to 0 at the start of the auction and Prebid storage is not configured on the LiveIntent module. Bids will not be enriched for the first auction on each page, but may be for subsequent auctions",
-                              currentModuleConfig
+                              `Prebid storage should be configured with expires = 1. Currently storage.expires is set to ${currentModuleConfig.storage.expires} on the LiveIntent module. Setting expires to 1 will ensure the best page load performance while ensuring the freshest IDs are available.`,
+                              currentConfig.userSync
                             );
                           }
-                        } else {
-                          if (
-                            currentModuleConfig &&
-                            currentModuleConfig.storage
-                          ) {
+                          if (currentModuleConfig.storage.type !== "html5") {
                             log(
-                              level.INFO,
-                              "userSync.auctionDelay is a non-zero value (which is good), but Prebid storage is also configured for the LiveIntent module which may reduce the effectiveness and freshness of the resolved ids compared to the built-in caching. It is recommended to remove the storage configuration."
+                              level.WARNING,
+                              `Prebid storage should be configured with type = 'html5'. Currently storage.type is set to ${currentModuleConfig.storage.type} on the LiveIntent module. This is required for AmazonTAM to pick up the IDs.`,
+                              currentConfig.userSync
                             );
+                          }
+                          if (currentModuleConfig.storage.name !== "__tamLIResolveResult") {
+                            log(
+                              level.WARNING,
+                              `Prebid storage should be configured with name = '__tamLIResolveResult'. Currently storage.name is set to ${currentModuleConfig.storage.name} on the LiveIntent module. This is required for AmazonTAM to pick up the IDs.`,
+                              currentConfig.userSync
+                            );
+                          }
+                        }
+                        if (currentConfig.userSync.syncEnabled === false) {
+                          log(
+                            level.ERROR,
+                            `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') indicates TREATED group, but the Prebid userSync is disabled. Bids will not be enriched.`,
+                            currentConfig.userSync
+                          );
+                        } else {
+                          // Check userSync settings
+                          if (currentConfig.userSync.auctionDelay === 0) {
+                            if (currentModuleConfig.storage) {
+                              log(
+                                level.WARNING,
+                                "userSync.auctionDelay is set to 0 at the start of the auction. However, prebid storage IS configured on the liveIntentId module, so subsequent page views may still get first auctions enriched within the expiration period.",
+                                currentModuleConfig.storage
+                              );
+                            } else {
+                              log(
+                                level.ERROR,
+                                "userSync.auctionDelay is set to 0 at the start of the auction and Prebid storage is not configured on the LiveIntent module. Bids will not be enriched for the first auction on each page, but may be for subsequent auctions",
+                                currentModuleConfig
+                              );
+                            }
                           } else {
                             log(
                               level.WARNING,
@@ -482,11 +432,7 @@
                     } else {
                       // Check module config for proper setup
                       if (currentModuleConfig.params.publisherId) {
-                        log(
-                          level.INFO,
-                          "Configured publisherId:",
-                          currentModuleConfig.params.publisherId
-                        );
+                        log(level.INFO, "Configured publisherId:", currentModuleConfig.params.publisherId);
                         if (currentModuleConfig.params.distributorId) {
                           log(
                             level.WARNING,
@@ -496,11 +442,7 @@
                           );
                         }
                       } else if (currentModuleConfig.params.distributorId) {
-                        log(
-                          level.INFO,
-                          "Configured distributorId:",
-                          currentModuleConfig.params.distributorId
-                        );
+                        log(level.INFO, "Configured distributorId:", currentModuleConfig.params.distributorId);
                       } else {
                         log(
                           level.ERROR,
@@ -509,10 +451,7 @@
                           currentModuleConfig.params
                         );
                       }
-                      log(
-                        level.INFO,
-                        `User is in the TREATED group and auction was enriched.`
-                      );
+                      log(level.INFO, `User is in the TREATED group and auction was enriched.`);
                     }
                   }
                   // Unknown targeting value
@@ -525,11 +464,7 @@
                 }
               }
             } catch (e) {
-              log(
-                level.ERROR,
-                "Unhandled exception during auctionInit googletag evaluation",
-                e
-              );
+              log(level.ERROR, "Unhandled exception during auctionInit googletag evaluation", e);
             }
           });
         }
@@ -540,13 +475,8 @@
 
     pbjs.onEvent("auctionEnd", (args) => {
       try {
-        const auctionWasEnriched = args.bidderRequests.some((br) =>
-          br.bids.some(bidWasEnriched)
-        );
-        const auctionTotalCpm = (pbjs.getHighestCpmBids() ?? []).reduce(
-          (carry, bid) => carry + bid.cpm,
-          0
-        );
+        const auctionWasEnriched = args.bidderRequests.some((br) => br.bids.some(bidWasEnriched));
+        const auctionTotalCpm = (pbjs.getHighestCpmBids() ?? []).reduce((carry, bid) => carry + bid.cpm, 0);
         fireLIMetric("auctionEnd", {
           auctionId: args.auctionId,
           enriched: auctionWasEnriched,
@@ -562,11 +492,7 @@
         const winningBidWasEnriched =
           pbjs
             .getEvents()
-            .find(
-              (e) =>
-                e.eventType === "auctionInit" &&
-                e.args.auctionId === bid.auctionId
-            )
+            .find((e) => e.eventType === "auctionInit" && e.args.auctionId === bid.auctionId)
             ?.args.bidderRequests.find((br) => br.bidderCode === bid.bidderCode)
             ?.bids.some(bidWasEnriched) ?? false;
         fireLIMetric("adRenderSucceeded", {
@@ -580,9 +506,6 @@
       }
     });
   };
-  log(
-    level.DEBUG,
-    `Hooking ${config.prebid.window_property_name}.${hookQ}.${hookF}`
-  );
+  log(level.DEBUG, `Hooking ${config.prebid.window_property_name}.${hookQ}.${hookF}`);
   pbjs[hookQ][hookF](lipidHook);
 })();

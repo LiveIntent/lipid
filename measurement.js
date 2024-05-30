@@ -1,15 +1,16 @@
 // ==UserScript==
 // @name         LI Measurement Script
 // @namespace    http://liveintent.com
-// @version      2024-05-03-1
+// @version      2024-05-28-1
 // @description  LiveIntent PCID Initialization and GAM Measurement Script
 // @author       phillip@liveintent.com
 // @grant        none
 // ==/UserScript==
 
 (function () {
-  // start liveintent module init and measurement v1.5.4
+  // start liveintent module init and measurement v1.6.0
   const LI_REPORTING_KEY = "li-module-enabled";
+  const LI_TREATMENT_RATE = 0.95;
 
   // Initialize ONE of the following values, but not both
   let LI_PUBLISHER_ID; // = your LiveIntent Publisher ID
@@ -21,12 +22,15 @@
   const pbjs = (window.pbjs = window.pbjs || { que: [] });
   const googletag = (window.googletag = window.googletag || { cmd: [] });
 
-  const TREATMENT_RATE = 0.95;
-  if (window.liModuleEnabled !== undefined) {
+  // Set or upgrade the treatment rate and ModuleEnabled flags
+  if ((window.liTreatmentRate || 0) < LI_TREATMENT_RATE && !window.liModuleEnabled) {
+    // If a previous wrapper set a lower treatment rate, adjust the probability to upgrade
+    // and re-flip if needed. Otherwise, match LI_TREATMENT_RATE.
+    const treatment_rate = 1 - (1 - LI_TREATMENT_RATE) / (1 - (window.liTreatmentRate || 0));
+    window.liTreatmentRate = LI_TREATMENT_RATE;
     // To manage the control group selection externally, override the initialization of this value
     // true = treated group, false = control group.
-    window.liModuleEnabled = Math.random() < TREATMENT_RATE;
-    window.liTreatmentRate = TREATMENT_RATE;
+    window.liModuleEnabled = Math.random() < treatment_rate;
   }
 
   let auctionsEnriched = {};
@@ -44,7 +48,7 @@
   pbjs.que.push(function () {
     // Enable the module, only if the visit is in the treated group
     if (window.liModuleEnabled) {
-      pbjs.mergeConfig({
+      const existingConfig = pbjs.mergeConfig({
         userSync: {
           auctionDelay: 300,
           userIds: [
@@ -75,6 +79,10 @@
           ],
         },
       });
+      // If existing userId modules were present, then we need to explicitly refresh the newly added module
+      if (existingConfig.userSync.userIds.length > 1) {
+        pbjs.refreshUserIds({ submoduleNames: ["liveIntentId"] });
+      }
     }
 
     pbjs.onEvent("auctionInit", function (args) {
@@ -89,11 +97,7 @@
                 b.userIdAsEids.some(
                   (eid) =>
                     eid.source === "liveintent.com" ||
-                    (eid.uids &&
-                      eid.uids.some(
-                        (uid) =>
-                          uid.ext && uid.ext.provider === "liveintent.com"
-                      ))
+                    (eid.uids && eid.uids.some((uid) => uid.ext && uid.ext.provider === "liveintent.com"))
                 )
             )
         );
