@@ -368,8 +368,8 @@
                             "No publisherId or distributorId is configured on the liveIntentId module",
                             "Current params:",
                             currentModuleConfig.params
-                            );
-                          }
+                          );
+                        }
                         if (!currentModuleConfig.storage) {
                           log(
                             level.WARNING,
@@ -421,7 +421,7 @@
                                 currentModuleConfig
                               );
                             }
-                        } else {
+                          } else {
                             log(
                               level.WARNING,
                               `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') indicates TREATED group, but this auction was still not enriched. This may not be an error due to a mis-configuration, or it could be a transient issue due to a timeout or no identifiers returned for the user.`
