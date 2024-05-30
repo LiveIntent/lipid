@@ -370,6 +370,34 @@
                             currentModuleConfig.params
                             );
                           }
+                        if (!currentModuleConfig.storage) {
+                          log(
+                            level.WARNING,
+                            `Prebid storage is not configured on the LiveIntent module. Enabling storage will improve page performance and user experience.`,
+                            currentConfig.userSync
+                          );
+                        } else {
+                          if (currentModuleConfig.storage.expires !== 1) {
+                            log(
+                              level.WARNING,
+                              `Prebid storage should be configured with expires = 1. Currently storage.expires is set to ${currentModuleConfig.storage.expires} on the LiveIntent module. Setting expires to 1 will ensure the best page load performance while ensuring the freshest IDs are available.`,
+                              currentConfig.userSync
+                            );
+                          }
+                          if (currentModuleConfig.storage.type !== "html5") {
+                            log(
+                              level.WARNING,
+                              `Prebid storage should be configured with type = 'html5'. Currently storage.type is set to ${currentModuleConfig.storage.type} on the LiveIntent module. This is required for AmazonTAM to pick up the IDs.`,
+                              currentConfig.userSync
+                            );
+                          }
+                          if (currentModuleConfig.storage.name !== "__tamLIResolveResult") {
+                            log(
+                              level.WARNING,
+                              `Prebid storage should be configured with name = '__tamLIResolveResult'. Currently storage.name is set to ${currentModuleConfig.storage.name} on the LiveIntent module. This is required for AmazonTAM to pick up the IDs.`,
+                              currentConfig.userSync
+                            );
+                          }
                         }
                         if (currentConfig.userSync.syncEnabled === false) {
                           log(
@@ -394,15 +422,6 @@
                               );
                             }
                         } else {
-                          if (
-                            currentModuleConfig &&
-                            currentModuleConfig.storage
-                          ) {
-                            log(
-                              level.INFO,
-                              "userSync.auctionDelay is a non-zero value (which is good), but Prebid storage is also configured for the LiveIntent module which may reduce the effectiveness and freshness of the resolved ids compared to the built-in caching. It is recommended to remove the storage configuration."
-                            );
-                          } else {
                             log(
                               level.WARNING,
                               `window.googletag.pubads().getTargeting('${config.googletag.reporting_key}') indicates TREATED group, but this auction was still not enriched. This may not be an error due to a mis-configuration, or it could be a transient issue due to a timeout or no identifiers returned for the user.`
