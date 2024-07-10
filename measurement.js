@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         LI Measurement Script
 // @namespace    http://liveintent.com
-// @version      2024-05-03-1
+// @version      2024-07-10-1
 // @description  LiveIntent PCID Initialization and GAM Measurement Script
 // @author       phillip@liveintent.com
 // @grant        none
 // ==/UserScript==
 
 (function () {
-  // start liveintent module init and measurement v1.5.4
+  // start liveintent module init and measurement v1.5.5
   const LI_REPORTING_KEY = "li-module-enabled";
 
   // Initialize ONE of the following values, but not both
@@ -22,7 +22,7 @@
   const googletag = (window.googletag = window.googletag || { cmd: [] });
 
   const TREATMENT_RATE = 0.95;
-  if (window.liModuleEnabled !== undefined) {
+  if (window.liModuleEnabled === undefined) {
     // To manage the control group selection externally, override the initialization of this value
     // true = treated group, false = control group.
     window.liModuleEnabled = Math.random() < TREATMENT_RATE;
