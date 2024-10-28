@@ -154,7 +154,7 @@
       log(
         level.LIPID,
         `window._pbjsGlobals (${window._pbjsGlobals}) does not include the configured lipid.config.prebid.window_property_name (${config.prebid.window_property_name}). To automatically update this value, run `,
-        "lipid.config.prebid_window_property_name = window._pbjsGlobals[0]; lipid.storeConfig()",
+        "lipid.config.prebid.window_property_name = window._pbjsGlobals[0]; lipid.storeConfig()",
         " and reload the page."
       );
     } else {
