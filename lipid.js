@@ -181,9 +181,12 @@
 
   // Utility functions
   const eidBelongsToLiveIntent = (eid) =>
-    eid.source === "liveintent.com" ||
+    eid.source === "liveintent.com";
+  const eidSourcedByLiveIntent = (eid) =>
     eid.uids?.some((uid) => uid.ext?.provider === "liveintent.com");
   const bidWasEnriched = (bid) =>
+    bid.userIdAsEids?.some(eidSourcedByLiveIntent);
+  const bidWasNonIdEnriched = (bid) =>  (bid) =>
     bid.userIdAsEids?.some(eidBelongsToLiveIntent);
   const moduleIsInstalled = () =>
     pbjs.installedModules.includes("liveIntentIdSystem");
@@ -264,6 +267,7 @@
       let newModuleConfig = userSync.userIds?.find(
         (module) => module.name === "liveIntentId"
       );
+      log(level.DEBUG, "Module Configured with settings:", snapshot(newModuleConfig));
       if (moduleEverConfigured && !newModuleConfig) {
         log(
           level.WARNING,
@@ -304,10 +308,15 @@
         const enrichedBid = args.bidderRequests
           .flatMap((br) => br.bids)
           .find(bidWasEnriched);
+        const nonIdEnrichedBid = args.bidderRequests
+          .flatMap((br) => br.bids)
+          .find(bidWasNonIdEnriched);
         const auctionWasEnriched = enrichedBid !== undefined;
+        const auctionWasNonIdEnriched = nonIdEnrichedBid !== undefined;
         fireLIMetric("auctionInit", {
           auctionId: args.auctionId,
           enriched: auctionWasEnriched,
+          nonIdEnriched: auctionWasNonIdEnriched,
           enrichedIds: enrichedBid?.userIdAsEids.filter(eidBelongsToLiveIntent),
           auctionDelay: pbjs.getConfig().userSync.auctionDelay,
         });
