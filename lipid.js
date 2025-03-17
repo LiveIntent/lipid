@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         LIPID (LiveIntent Prebid Identity Debugger)
+// @name         LIPID 3.12.25 test
 // @namespace    LiveIntent
 // @homepage     https://github.com/LiveIntent/lipid
 // @version      2024-03-22_1
@@ -215,11 +215,64 @@
       const liTargetingValue = window.googletag
         .pubads()
         .getTargeting(config.googletag.reporting_key);
+
       if (
         existingTargetingValue.length != liTargetingValue.length ||
         existingTargetingValue.some((a, i) => a !== liTargetingValue[i])
       ) {
-        log(level.INFO, `Targeting value is set to ${liTargetingValue}`);
+        let contextMessage = `Targeting value is set to ${liTargetingValue}.`;
+        switch (liTargetingValue[0]) {
+          case "t1-e1":
+            contextMessage += " The module was enabled and auction was enriched.";
+            break;
+          case "t1-e0":
+            contextMessage += " The module was enabled and auction was NOT enriched.";
+            break;
+          case "t1":
+            contextMessage += " The module was enabled.";
+            break;
+          case "t0-e1":
+            contextMessage += " The module was NOT enabled but auction was enriched. Please check module configuration.";
+            break;
+          case "t0-e0":
+            contextMessage += " The module was NOT enabled and auction was NOT enriched.";
+            break;
+          case "t0":
+            contextMessage += " The module was NOT enabled.";
+            break;
+        }
+
+        log(level.INFO, contextMessage);
+
+           // Check if IP addresses (IPv4 and IPv6) are being passed in LiveIntent User ID module
+      const liveIntentConfig = pbjs.getConfig("userSync").userIds?.find(
+        (module) => module.name === "liveIntentId"
+      );
+
+      if (liveIntentConfig) {
+        const hasIPv4 = liveIntentConfig.params?.ipv4;
+        const hasIPv6 = liveIntentConfig.params?.ipv6;
+        const emailHashes = liveIntentConfig.params?.emailHash;
+
+if (emailHashes && Array.isArray(emailHashes) && emailHashes.length > 0) {
+  log(level.INFO, "The module is configured to pass email hashes:", emailHashes);
+} else {
+  log(level.WARNING, "The module is NOT passing email hashes.");
+}
+        if (hasIPv4) {
+          log(level.INFO, "The module is configured to pass IPv4 addresses.");
+        } else {
+          log(level.WARNING, "The module is NOT passing IPv4 addresses.");
+        }
+
+        if (hasIPv6) {
+          log(level.INFO, "The module is configured to pass IPv6 addresses.");
+        } else {
+          log(level.WARNING, "The module is NOT passing IPv6 addresses.");
+        }
+      } else {
+        log(level.ERROR, "LiveIntent User ID module is not configured.");
+      }
         existingTargetingValue = liTargetingValue;
       }
     }, config.googletag.polling_interval);
@@ -452,13 +505,13 @@
                           ) {
                             log(
                               level.WARNING,
-                              "userSync.auctionDelay is set to 0 at the start of the auction. However, prebid storage IS configured on the liveIntentId module, so subsequent page views may still get first auctions enriched within the expiration period.",
+                              "userSync.auctionDelay is set to 0 at the start of the auction. Every first auction for every user each day will be missed. We recommend adding an auctionDelay of 300ms. However, prebid storage IS configured on the liveIntentId module, so subsequent page views may still get first auctions enriched within the expiration period.",
                               currentModuleConfig.storage
                             );
                           } else {
                             log(
                               level.ERROR,
-                              "userSync.auctionDelay is set to 0 at the start of the auction and Prebid storage is not configured on the LiveIntent module. Bids will not be enriched for the first auction on each page, but may be for subsequent auctions",
+                              "userSync.auctionDelay is set to 0 at the start of the auction. Every first auction for every user each day will be missed. We recommend adding an auctionDelay of 300ms. Prebid storage is not configured on the liveIntentId module. Some auctions will be missed. We recommend enabling local storage for complete coverage. Bids will not be enriched for the first auction on each page, but may be for subsequent auctions",
                               currentModuleConfig
                             );
                           }
@@ -469,7 +522,7 @@
                           ) {
                             log(
                               level.INFO,
-                              "userSync.auctionDelay is a non-zero value (which is good), but Prebid storage is also configured for the LiveIntent module which may reduce the effectiveness and freshness of the resolved ids compared to the built-in caching. It is recommended to remove the storage configuration."
+                              "userSync.auctionDelay is a non-zero value and Prebid local storage is also configured for the LiveIntent module which is ideal."
                             );
                           } else {
                             log(
